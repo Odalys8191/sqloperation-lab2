@@ -1,0 +1,6 @@
+.vscode
+backend/cmake
+backend/protos/*.pb.*
+backend/protos/google
+backend/build
+backend/src/consumer/computeAPI/__pycache__

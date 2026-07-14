@@ -1,0 +1,450 @@
+syntax = "proto3";
+
+package serverInteraction;
+
+import "google/api/annotations.proto"; // For RESTful API support
+
+// ==============================Cloud server==============================
+// [consumer]获取数据胶囊
+message GetDataCapsuleRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetDataCapsuleResponse
+{
+    string data_capsule = 1; // JSON格式的数据胶囊
+}
+
+// [consumer]获取Ek(password)
+message GetEncryptedDataCapsulePasswordRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetEncryptedDataCapsulePasswordResponse
+{
+    string encrypted_dc_password = 1; // Ek(password)
+}
+
+// [consumer]获取数据胶囊访问策略
+message GetProgramPolicyRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetProgramPolicyResponse
+{
+    string program_policy = 1; // 访问策略
+}
+
+// [consumer]请求解密附加信息
+message GetDataCapsuleKeyAdditionalInformationRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetDataCapsuleKeyAdditionalInformationResponse
+{
+    string additional_information = 1; // 附加信息
+}
+
+// [producer]存储数据胶囊
+message StoreDataCapsuleRequest
+{
+    string dc_id = 1;        // 数据胶囊ID
+    string data_capsule = 2; // JSON格式的数据胶囊
+}
+
+message StoreDataCapsuleResponse
+{
+    bool success = 1; // 存储是否成功
+}
+
+// [front-end]获取现存所有胶囊详细信息
+message GetExistingDataCapsuleInformationRequest
+{
+    string message = 1;
+}
+
+message GetExistingDataCapsuleInformationResponse
+{
+    string data_capsules = 1;
+}
+
+// [front-end]获取现存所有胶囊详细信息
+message GetExistingDataCapsuleNumberRequest
+{
+    string message = 1;
+}
+
+message GetExistingDataCapsuleNumberResponse
+{
+    int32 data_capsules_number = 1; // 胶囊数量
+}
+
+// ==============================CertificateAuthority server==============================
+// [consumer]TEE公钥提交与TEEID分配
+message InitializeTEERequest
+{
+    bytes public_key = 1; // 发送的公钥
+}
+
+message InitializeTEEResponse
+{
+    string tee_id = 1;      // TEE唯一标识符
+    bytes sign_certificate = 2;  // 数字证书
+}
+
+// TODO：后续实现
+// [producer]TEE公钥提交与TEEID分配
+// message InitializeTEERequest
+// {
+//     string tee_type = 1;  // producer/consumer
+//     bytes public_key = 2; // 发送的公钥
+// }
+
+// message InitializeTEEResponse
+// {
+//     string tee_id = 1;                      // TEE唯一标识符
+//     bytes encryption_certificate = 2;       // 加密数字证书
+//     bytes sign_certificate = 3;             // 签名数字证书
+//     bytes encryption_certificate_chain = 4; // 加密证书链
+//     bytes sign_certificate_chain = 5;       // 签名证书链
+//     bytes root_ca_certificate = 6;          // 根CA证书
+// }
+
+// [producer]胶囊初始信息请求与回复
+message DataCapsuleInitialInformationRequest
+{
+    string user_id = 1; // UserID，数据胶囊使用者的用户ID
+}
+
+message DataCapsuleInitialInformationResponse
+{
+    string dc_id = 1;              // 分配的DCID（数据胶囊标识符）
+    // bytes encrypted_password = 2; // 用户加密后的密码：Ek(password) - ABE实现后不再需要
+    // bytes encryption_key = 3;     // 用于数据胶囊的密钥 K（固定密钥） - ABE实现后不再需要，直接让producer随机生成，ABE加密后存在胶囊中
+}
+
+// [consumer]数据胶囊密钥请求与回复
+message GetDataCapsuleKeyRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetDataCapsuleKeyResponse
+{
+    bytes dc_key = 1; // 数据胶囊K
+}
+
+// [consumer]签名公钥请求与回复
+message GetProducerSignaturePublicKeyRequest
+{
+    string tee_id = 1; // PTEEID
+}
+
+message GetProducerSignaturePublicKeyResponse
+{
+    bytes public_key = 1; // PTEE的签名公钥key
+}
+
+// ==============================AttributeAuthority server==============================
+
+// [producer] ABE公钥请求
+message GetABEPublicKeyRequest
+{
+    int32 key_id = 1; // 1: 第一层公钥, 2: 第二层公钥, ...
+}
+
+message GetABEPublicKeyResponse
+{
+    bytes abe_public_key = 1; // ABE公钥
+}
+
+// [user] 数据使用者请求cpabe私钥
+message GetABEPrivateKeyRequest
+{
+    int32 layer = 1;
+    repeated string attrs = 2;
+}
+
+message GetABEPrivateKeyResponse
+{
+    string abe_secret_key = 1; //cpabe私钥
+}
+
+message ConvertPolicyRequest
+{
+    int32 layer = 1;
+    string policy = 2; 
+}
+
+message ConvertPolicyResponse
+{
+    string converted_policy = 1;
+}
+
+// ==============================User Management Server==============================
+// [user]用户注册请求与回复
+message UserRegistrationRequest
+{
+    //string username = 1; // 用户名
+    string user_name = 1;
+    bytes password = 2;  // 用户密码password
+}
+
+message UserRegistrationResponse
+{
+    //string user_id = 1; // 注册分配的UserID或OwnerID
+    string user_name = 1;
+    bool success = 2;   // 注册是否成功
+    string message = 3; // 注册反馈信息
+}
+
+// [user]用户登录请求与回复
+message UserLoginRequest 
+{
+    //string user_id = 1;
+    string user_name = 1;
+    string password = 2;
+}
+
+message UserLoginResponse 
+{
+    bool success = 1;
+    string user_name = 2;
+    string message = 3;
+}
+
+// [user]用户信息查询请求与回复（用于 UserManagementService）
+message GetUserInfoRequest
+{
+    string user_id = 1;
+}
+
+message GetUserInfoResponse
+{
+    //bytes encrypted_password = 1;
+    bytes password_hash = 1;
+    bool found = 2;
+    string message = 3;
+}
+
+// ==============================Etcd server==============================
+// [consumer]获取etcd上存储的胶囊state信息
+message GetDataCapsuleStateRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+}
+
+message GetDataCapsuleStateResponse
+{
+    string state = 1; // etcd上存储的数据胶囊state信息
+}
+
+// [consumer]更新etcd上存储的胶囊state信息
+message UpdateDataCapsuleStateRequest
+{
+    string dc_id = 1; // 数据胶囊ID
+    string state = 2; // (使用胶囊后)要更新到etcd上的state信息
+}
+
+message UpdateDataCapsuleStateResponse
+{
+    bool success = 1; // 更新是否成功
+}
+
+// [producer]将胶囊state信息发送给etcd
+message SendDataCapsuleStateRequest
+{
+    string  dc_id = 1;
+    string  state = 2;
+}
+message SendDataCapsuleStateResponse
+{
+    string result = 1;
+}
+
+// [front-end]获取现存所有胶囊状态信息
+message GetExistingDataCapsuleStateRequest
+{
+    string message = 1;
+}
+
+message GetExistingDataCapsuleStateResponse
+{
+    string data_capsules_state = 1;
+}
+
+// ==============================ProducerService Server==============================
+message GenerateDataCapsuleRequest
+{
+    string owner_id = 1;
+    string policy = 2;
+    string abe_policy = 3;
+    bytes data = 4;
+    string state = 5;
+    string attributes = 6;
+}
+
+message GenerateDataCapsuleResponse
+{
+    string res = 1;
+    string dc_id = 2;
+}
+// ==============================ConsumerService Server==============================
+
+message ConsumeDataCapsuleRequest
+{
+    string user_id = 1;       // 用户ID - ABE实现后：替换为用户ABE私钥
+    string dc_id = 2;         // 数据胶囊ID
+    string user_request = 3; // 消费请求
+}
+
+message ConsumeDataCapsuleResponse
+{
+    string compute_result = 1; // 计算结果
+}
+
+// ==============================定义服务==============================
+
+// ==============================Cloud Server==============================
+service CloudStorageService
+{
+    // [consumer]请求数据胶囊
+    rpc GetDataCapsule(GetDataCapsuleRequest) returns(GetDataCapsuleResponse);
+    // [consumer]请求数据胶囊访问策略
+    rpc GetProgramPolicy(GetProgramPolicyRequest) returns(GetProgramPolicyResponse);
+    // [consumer]请求Ek(password) - 实现ABE后不再需要
+    // rpc GetEncryptedDataCapsulePassword(GetEncryptedDataCapsulePasswordRequest) returns(GetEncryptedDataCapsulePasswordResponse);
+    // [consumer]请求解密附加信息 - 实现ABE后不再需要
+    // rpc GetDataCapsuleKeyAdditionalInformation(GetDataCapsuleKeyAdditionalInformationRequest) returns(GetDataCapsuleKeyAdditionalInformationResponse);
+    
+    // [producer]存储胶囊
+    rpc StoreDataCapsule(StoreDataCapsuleRequest) returns(StoreDataCapsuleResponse);
+
+    // RESTful
+    // [front-end]获取现存所有胶囊详细信息
+    rpc GetExistingDataCapsuleInformation(GetExistingDataCapsuleInformationRequest) returns(GetExistingDataCapsuleInformationResponse)
+    {
+        option (google.api.http) = 
+        {
+          get: "/cloud/getExistingDataCapsuleInformation"
+        };
+    }
+
+    // RESTful
+    // [front-end]获取现存胶囊数量
+    rpc GetExistingDataCapsuleNumber(GetExistingDataCapsuleNumberRequest) returns(GetExistingDataCapsuleNumberResponse)
+    {
+        option (google.api.http) = 
+        {
+          get: "/cloud/getExistingDataCapsuleNumber"
+        };
+    }
+}
+
+// ==============================CertificateAuthority Server==============================
+service CertificateAuthorityService
+{
+    // [producer][consumer]TEE公钥提交和TEEID分配
+    rpc InitializeTEE(InitializeTEERequest) returns(InitializeTEEResponse);
+    // [producer]胶囊初始信息请求与回复(胶囊ID等)
+    rpc GetDataCapsuleInitialInformation(DataCapsuleInitialInformationRequest) returns(DataCapsuleInitialInformationResponse);
+    // [consumer]签名公钥请求与回复
+    rpc GetProducerSignaturePublicKey(GetProducerSignaturePublicKeyRequest) returns(GetProducerSignaturePublicKeyResponse);
+    // [consumer]密钥请求与回复 - ABE实现后不再需要
+    // rpc GetDataCapsuleKey(GetDataCapsuleKeyRequest) returns(GetDataCapsuleKeyResponse);
+}
+
+// ==============================AttributeAuthority Server==============================
+service AttributeAuthorityService
+{
+    // TODO: [producer] ABE公钥请求
+    rpc GetABEPublicKey(GetABEPublicKeyRequest) returns(GetABEPublicKeyResponse);
+    // TODO: [user] 用户获取cpabe私钥请求
+    rpc GetABEPrivateKey(GetABEPrivateKeyRequest) returns (GetABEPrivateKeyResponse);
+    // TODO
+    rpc ConvertPolicy(ConvertPolicyRequest) returns(ConvertPolicyResponse);
+}
+
+// ==============================User Management Server==============================
+service UserManagementService
+{
+    // RESTful
+    // [user]用户注册请求与回复
+    rpc RegisterUser(UserRegistrationRequest) returns (UserRegistrationResponse)
+    {
+        option (google.api.http) = {
+            post: "/user/register"
+            body: "*"
+        };
+    }
+
+    // RESTful
+    // [user]用户登录请求与回复
+    rpc LoginUser(UserLoginRequest) returns (UserLoginResponse) 
+    {
+        option (google.api.http) = {
+            post: "/user/login"
+            body: "*"
+        };
+    }
+
+    // RESTful
+    // [user]用户信息的请求与回复
+    rpc GetUserInfo(GetUserInfoRequest) returns(GetUserInfoResponse)
+    {
+        option (google.api.http) = {
+            get: "/user/getUserInfo"
+            body: "*"
+        };
+    }
+}
+
+// ==============================etcd Server==============================
+service EtcdService
+{
+    // [producer]上传数据胶囊state信息
+    rpc SendDataCapsuleState(SendDataCapsuleStateRequest) returns(SendDataCapsuleStateResponse);
+    // [consumer]请求数据胶囊State信息
+    rpc GetDataCapsuleState(GetDataCapsuleStateRequest) returns(GetDataCapsuleStateResponse);
+    // [consumer]更新数据胶囊State信息
+    rpc UpdateDataCapsuleState(UpdateDataCapsuleStateRequest) returns(UpdateDataCapsuleStateResponse);
+
+    // RESTful
+    // 获取现存所有胶囊状态信息
+    rpc GetExistingDataCapsuleState(GetExistingDataCapsuleStateRequest) returns(GetExistingDataCapsuleStateResponse)
+    {
+        option (google.api.http) = {
+            get: "/etcd/getExistingDataCapsuleState"
+        };
+    }
+}
+
+// ==============================ProducerService Server==============================
+service ProducerService
+{
+    // [user][consumer]生成胶囊
+    rpc GenerateDataCapsule(GenerateDataCapsuleRequest) returns (GenerateDataCapsuleResponse)
+    {
+        option (google.api.http) = {
+            post: "/producer/generateDataCapsule"
+            body: "*"
+        };
+    }
+}
+
+// ==============================ConsumerService Server==============================
+service ConsumerService
+{
+    // [user]消费胶囊
+    rpc ConsumeDataCapsule(ConsumeDataCapsuleRequest) returns(ConsumeDataCapsuleResponse)
+    {
+        option (google.api.http) = {
+            post: "/consumer/consumeDataCapsule"
+            body: "*"
+        };
+    }
+}

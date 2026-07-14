@@ -1,0 +1,16 @@
+[Unit]
+Description=DataCapsule Consumer gRPC Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/aigc/projects/DataCapsuleProject/DataCapsuleProject/backend/cmake/build
+ExecStart=/home/aigc/projects/DataCapsuleProject/DataCapsuleProject/backend/cmake/build/consumer
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=60
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target
