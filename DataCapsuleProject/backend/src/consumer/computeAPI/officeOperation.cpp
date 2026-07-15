@@ -29,13 +29,12 @@
 
 namespace
 {
-constexpr int kMinOfficePort = 20000;
-constexpr int kMaxOfficePort = 60000;
+constexpr int kOfficeHostPort = 2341;
 constexpr int kContainerXpraPort = 10000;
-constexpr int kPortSelectionAttempts = 128;
 constexpr int kXpraReadinessAttempts = 150;
 constexpr auto kXpraReadinessDelay = std::chrono::milliseconds(100);
 constexpr const char *kOfficeImage = "ubuntu_xpra:limited_user";
+constexpr const char *kAdvertisedXpraHost = "192.168.100.221";
 
 struct CommandResult
 {
@@ -300,24 +299,6 @@ bool waitForXpraPort(int port)
             return true;
         }
         std::this_thread::sleep_for(kXpraReadinessDelay);
-    }
-    return false;
-}
-
-bool selectOfficePort(int &port)
-{
-    std::random_device random_device;
-    std::mt19937 generator(random_device());
-    std::uniform_int_distribution<int> distribution(kMinOfficePort, kMaxOfficePort);
-
-    for (int attempt = 0; attempt < kPortSelectionAttempts; ++attempt)
-    {
-        const int candidate = distribution(generator);
-        if (isPortAvailable(candidate))
-        {
-            port = candidate;
-            return true;
-        }
     }
     return false;
 }
@@ -779,11 +760,13 @@ bool OfficeOperation::executeOfficeOperation(const json &data_capsule_info, std:
         return false;
     }
 
-    int host_port = 0;
-    if (!selectOfficePort(host_port))
+    const int host_port = kOfficeHostPort;
+    if (!isPortAvailable(host_port))
     {
-        result = "Office operation failed: No available Xpra port was found.";
-        std::cerr << "[OfficeOperation-executeOfficeOperation]: No available port in the configured range."
+        result = "Office operation failed: Fixed Xpra port " +
+                 std::to_string(host_port) + " is already in use.";
+        std::cerr << "[OfficeOperation-executeOfficeOperation]: Fixed Xpra port "
+                  << host_port << " is already in use."
                   << std::endl;
         return false;
     }
@@ -872,7 +855,7 @@ bool OfficeOperation::executeOfficeOperation(const json &data_capsule_info, std:
 
     std::ostringstream connection_information;
     connection_information << "To connect to the office file, use the Xpra client: "
-                           << "xpra attach tcp://server_ip:" << host_port << "/\n"
+                           << "xpra attach tcp://" << kAdvertisedXpraHost << ":" << host_port << "/\n"
                            << "Password: " << password;
     result = connection_information.str();
 
