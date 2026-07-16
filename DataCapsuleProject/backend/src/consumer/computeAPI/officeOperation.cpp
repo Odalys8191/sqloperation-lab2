@@ -31,6 +31,7 @@ namespace
 {
 constexpr int kOfficeHostPort = 2341;
 constexpr int kContainerXpraPort = 10000;
+constexpr int kAcceptedXpraLifecycleExitCode = 1;
 constexpr int kXpraReadinessAttempts = 150;
 constexpr auto kXpraReadinessDelay = std::chrono::milliseconds(100);
 constexpr const char *kOfficeImage = "ubuntu_xpra:limited_user";
@@ -587,11 +588,24 @@ void handleContainerExit(
     const std::string &office_file_path,
     const json &data_capsule_info)
 {
+    const auto log_container_diagnostic = [&container_name, &office_file_path]() {
+        const CommandResult log_result = runCommand({"docker", "logs", "--tail", "120", container_name});
+        const std::string diagnostic = sanitizedDiagnostic(
+            log_result.output,
+            {office_file_path});
+        if (!diagnostic.empty())
+        {
+            std::cerr << "[OfficeOperation-handleContainerExit]: Sanitized container diagnostic:\n"
+                      << diagnostic << std::endl;
+        }
+    };
+
     const CommandResult wait_result = runCommand({"docker", "wait", container_name});
     if (wait_result.exit_code != 0)
     {
         std::cerr << "[OfficeOperation-handleContainerExit]: Failed to monitor container "
                   << container_name << "." << std::endl;
+        log_container_diagnostic();
         return;
     }
 
@@ -599,17 +613,30 @@ void handleContainerExit(
     if (!parseContainerExitCode(wait_result.output, container_exit_code))
     {
         std::cerr << "[OfficeOperation-handleContainerExit]: Docker returned an invalid container exit status." << std::endl;
+        log_container_diagnostic();
         removeContainer(container_name, false);
         return;
     }
 
-    removeContainer(container_name, false);
-    if (container_exit_code != 0)
+    const bool accepted_lifecycle_exit =
+        container_exit_code == 0 ||
+        container_exit_code == kAcceptedXpraLifecycleExitCode;
+    if (!accepted_lifecycle_exit)
     {
         std::cerr << "[OfficeOperation-handleContainerExit]: Office container exited abnormally with code "
                   << container_exit_code << "; no successor capsule will be generated." << std::endl;
+        log_container_diagnostic();
+        removeContainer(container_name, false);
         return;
     }
+    if (container_exit_code == kAcceptedXpraLifecycleExitCode)
+    {
+        std::cout << "[OfficeOperation-handleContainerExit]: Xpra returned lifecycle exit code "
+                  << container_exit_code << "; validating the edited Office file before continuing."
+                  << std::endl;
+    }
+
+    removeContainer(container_name, false);
 
     std::error_code filesystem_error;
     const bool valid_file = std::filesystem::is_regular_file(office_file_path, filesystem_error) &&
