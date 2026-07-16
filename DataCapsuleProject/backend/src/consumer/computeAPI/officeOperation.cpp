@@ -33,7 +33,10 @@ constexpr int kOfficeHostPort = 2341;
 constexpr int kContainerXpraPort = 10000;
 constexpr int kXpraReadinessAttempts = 150;
 constexpr auto kXpraReadinessDelay = std::chrono::milliseconds(100);
+constexpr int kOfficeReadinessAttempts = 60;
+constexpr auto kOfficeReadinessDelay = std::chrono::milliseconds(250);
 constexpr const char *kOfficeImage = "ubuntu_xpra:limited_user";
+constexpr const char *kOfficeExecutable = "/opt/libreoffice25.2/program/soffice";
 constexpr const char *kAdvertisedXpraHost = "192.168.100.221";
 
 struct CommandResult
@@ -299,6 +302,24 @@ bool waitForXpraPort(int port)
             return true;
         }
         std::this_thread::sleep_for(kXpraReadinessDelay);
+    }
+    return false;
+}
+
+bool waitForOfficeProcess(const std::string &container_name)
+{
+    for (int attempt = 0; attempt < kOfficeReadinessAttempts; ++attempt)
+    {
+        const CommandResult top_result = runCommand(
+            {"docker", "top", container_name, "-eo", "comm,args"});
+        // The Xpra parent command contains "soffice" in its --start-child argument,
+        // so require the actual LibreOffice process name to avoid a false positive.
+        if (top_result.exit_code == 0 &&
+            top_result.output.find("soffice.bin") != std::string::npos)
+        {
+            return true;
+        }
+        std::this_thread::sleep_for(kOfficeReadinessDelay);
     }
     return false;
 }
@@ -779,7 +800,8 @@ bool OfficeOperation::executeOfficeOperation(const json &data_capsule_info, std:
         "--bind-tcp=0.0.0.0:" + std::to_string(kContainerXpraPort) +
         ",auth=env:name=XPRA_PASSWORD";
     const std::string start_child =
-        "--start-child=libreoffice --nologo --nodefault --nofirststartwizard " + container_file_path;
+        std::string("--start-child=") + kOfficeExecutable +
+        " --nologo --nodefault --nofirststartwizard --norestore " + container_file_path;
 
     const std::vector<std::string> docker_command = {
         "docker",
@@ -826,6 +848,24 @@ bool OfficeOperation::executeOfficeOperation(const json &data_capsule_info, std:
             {password, office_file_path_});
         std::cerr << "[OfficeOperation-executeOfficeOperation]: Container " << container_name
                   << " did not expose a ready Xpra port." << std::endl;
+        if (!diagnostic.empty())
+        {
+            std::cerr << "[OfficeOperation-executeOfficeOperation]: Sanitized container diagnostic:\n"
+                      << diagnostic << std::endl;
+        }
+        removeContainer(container_name, true);
+        return false;
+    }
+
+    if (!waitForOfficeProcess(container_name))
+    {
+        result = "Office operation failed: LibreOffice did not become ready.";
+        const CommandResult log_result = runCommand({"docker", "logs", "--tail", "120", container_name});
+        const std::string diagnostic = sanitizedDiagnostic(
+            log_result.output,
+            {password, office_file_path_});
+        std::cerr << "[OfficeOperation-executeOfficeOperation]: Container " << container_name
+                  << " did not start a ready LibreOffice process." << std::endl;
         if (!diagnostic.empty())
         {
             std::cerr << "[OfficeOperation-executeOfficeOperation]: Sanitized container diagnostic:\n"
