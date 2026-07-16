@@ -311,13 +311,20 @@ bool waitForOfficeProcess(const std::string &container_name)
     for (int attempt = 0; attempt < kOfficeReadinessAttempts; ++attempt)
     {
         const CommandResult top_result = runCommand(
-            {"docker", "top", container_name, "-eo", "comm,args"});
-        // The Xpra parent command contains "soffice" in its --start-child argument,
-        // so require the actual LibreOffice process name to avoid a false positive.
-        if (top_result.exit_code == 0 &&
-            top_result.output.find("soffice.bin") != std::string::npos)
+            {"docker", "top", container_name, "-eo", "comm"});
+        if (top_result.exit_code == 0)
         {
-            return true;
+            std::istringstream process_names(top_result.output);
+            std::string process_name;
+            while (process_names >> process_name)
+            {
+                if (process_name == "soffice" ||
+                    process_name == "soffice.bin" ||
+                    process_name == "oosplash")
+                {
+                    return true;
+                }
+            }
         }
         std::this_thread::sleep_for(kOfficeReadinessDelay);
     }
